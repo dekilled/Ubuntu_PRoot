@@ -1,0 +1,16 @@
+{
+  "appId": "com.example.prootapp",
+  "appName": "PRoot App",
+  "webDir": "frontend/dist",
+  "server": {
+    "androidScheme": "http"
+  },
+  "plugins": {
+    "ProotRuntime": {
+      "port": 8001,
+      "entry": "/opt/app/entry.sh",
+      "healthPath": "/api/health",
+      "autoStart": true
+    }
+  }
+}

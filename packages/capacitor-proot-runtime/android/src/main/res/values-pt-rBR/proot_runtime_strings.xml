@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="proot_channel_name">Ambiente Linux</string>
+    <string name="proot_notification_text">Servidor rodando no aparelho</string>
+    <string name="proot_stop">Parar</string>
+</resources>

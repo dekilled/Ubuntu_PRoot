@@ -1,0 +1,33 @@
+{
+  "name": "proot-app",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Template: app Android (Capacitor) + Ubuntu em PRoot + servidor Python",
+  "workspaces": [
+    "frontend",
+    "packages/*"
+  ],
+  "scripts": {
+    "init": "node scripts/init.mjs",
+    "dev:backend": "scripts/dev-backend.sh",
+    "dev:web": "npm run dev -w frontend",
+    "build": "npm run build -w capacitor-proot-runtime && npm run build -w frontend",
+    "sync": "npm run build && cap sync android",
+    "android:proot": "scripts/fetch-proot.sh",
+    "android:rootfs": "scripts/build-rootfs.sh",
+    "android:debug": "npm run sync && cd android && ./gradlew assembleDebug",
+    "android:release": "npm run sync && cd android && ./gradlew assembleRelease",
+    "android:open": "cap open android",
+    "test": "npm run test:backend && npm run test:android",
+    "test:backend": "cd backend && .venv/bin/python -m pytest -q",
+    "test:android": "cd android && ./gradlew testDebugUnitTest"
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.5.2",
+    "@capacitor/core": "^8.5.2",
+    "capacitor-proot-runtime": "*"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^8.5.2"
+  }
+}

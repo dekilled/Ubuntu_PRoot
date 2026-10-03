@@ -1,0 +1,22 @@
+node_modules/
+dist/
+build/
+.gradle/
+*.log
+.DS_Store
+.idea/
+.vscode/
+*.tsbuildinfo
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+backend/data/
+backend/.env
+
+# Chaves de assinatura (nunca versionar)
+*.keystore
+*.jks
+*.p12

@@ -1,0 +1,6 @@
+# Dependências para RODAR o servidor (PC e dentro do Ubuntu/PRoot do app).
+# Mantenha enxuto: tudo aqui é instalado no rootfs e vai dentro do APK.
+# Sem uvicorn[standard] de propósito: uvloop/httptools são extensões nativas, e puro-Python é mais seguro no PRoot.
+fastapi>=0.115,<1
+uvicorn>=0.30
+cryptography>=43

@@ -1,0 +1,112 @@
+name: Android APK
+
+on:
+  workflow_dispatch:
+  push:
+    paths-ignore:
+      - "**.md"
+      - "docs/**"
+
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Rápido (~1 min): servidor Python e front/plugin TypeScript.
+  checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12" # a mesma série do Ubuntu 24.04 do rootfs
+      - name: Backend (pytest)
+        working-directory: backend
+        run: |
+          pip install -r requirements-dev.txt
+          python -m pytest -q
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Plugin + front (typecheck e build)
+        run: |
+          npm ci
+          npm run build
+
+  apk:
+    needs: checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Front + plugin, sync do Capacitor
+        run: |
+          npm ci
+          npm run sync
+
+      - name: QEMU (emulação ARM64 para montar o rootfs)
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: arm64
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Ubuntu ARM64 (Python + servidor)
+        run: scripts/build-rootfs.sh
+
+      - name: PRoot do Termux
+        run: scripts/fetch-proot.sh
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: gradle
+
+      # Uma chave fixa faz cada APK novo instalar por cima do anterior, mantendo os dados do app.
+      # Preferido: o secret APP_SIGNING_SEED (uma frase longa; a chave é derivada dela, ver
+      # scripts/signing-key.py). Alternativa: um keystore em APP_KEYSTORE_BASE64
+      # (+ APP_KEYSTORE_PASSWORD, APP_KEY_ALIAS).
+      - name: Chave de assinatura
+        env:
+          SIGNING_SEED: ${{ secrets.APP_SIGNING_SEED }}
+          KEYSTORE_B64: ${{ secrets.APP_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.APP_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.APP_KEY_ALIAS }}
+        run: |
+          if [ -n "$SIGNING_SEED" ]; then
+            python3 -m pip install --quiet cryptography
+            APP_SIGNING_SEED="$SIGNING_SEED" python3 scripts/signing-key.py "$RUNNER_TEMP/app.p12" > "$RUNNER_TEMP/signing.env"
+            echo "::add-mask::$(grep PASSWORD "$RUNNER_TEMP/signing.env" | cut -d= -f2)"
+            cat "$RUNNER_TEMP/signing.env" >> "$GITHUB_ENV"
+          elif [ -n "$KEYSTORE_B64" ]; then
+            echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/app.keystore"
+            { echo "APP_KEYSTORE_FILE=$RUNNER_TEMP/app.keystore"
+              echo "APP_KEYSTORE_PASSWORD=$KEYSTORE_PASSWORD"
+              echo "APP_KEY_ALIAS=$KEY_ALIAS"; } >> "$GITHUB_ENV"
+          else
+            echo "::warning::Sem APP_SIGNING_SEED: APK assinado com a chave de debug do runner; para atualizar vai ser preciso desinstalar a versão anterior."
+          fi
+
+      - name: Testes e APK
+        working-directory: android
+        env:
+          APP_VERSION_CODE: ${{ github.run_number }}
+          APP_VERSION_NAME: 0.1.${{ github.run_number }}
+        run: |
+          ./gradlew --no-daemon testDebugUnitTest assembleRelease
+          "$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)/apksigner" verify --print-certs app/build/outputs/apk/release/*.apk | grep -E "DN|SHA-256"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: app-apk-${{ github.run_number }}
+          path: android/app/build/outputs/apk/release/*.apk
+          retention-days: 30

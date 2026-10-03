@@ -1,0 +1,31 @@
+{
+  "name": "capacitor-proot-runtime",
+  "version": "0.1.0",
+  "description": "Plugin Capacitor que instala e roda um Ubuntu (PRoot) com um servidor dentro do app Android e entrega ao front a URL + token para falar com ele.",
+  "type": "module",
+  "main": "dist/esm/index.js",
+  "module": "dist/esm/index.js",
+  "types": "dist/esm/index.d.ts",
+  "files": [
+    "android/build.gradle",
+    "android/src/main/",
+    "dist/"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "clean": "rm -rf dist",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "capacitor": {
+    "android": {
+      "src": "android"
+    }
+  },
+  "peerDependencies": {
+    "@capacitor/core": ">=8.0.0"
+  },
+  "devDependencies": {
+    "@capacitor/core": "^8.5.2",
+    "typescript": "^5.6.0"
+  }
+}

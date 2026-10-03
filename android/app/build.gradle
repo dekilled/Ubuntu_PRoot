@@ -1,0 +1,85 @@
+apply plugin: 'com.android.application'
+
+// Fonte única da identidade do app: ../capacitor.config.json (appId, appName).
+def capacitorConfig = new groovy.json.JsonSlurper().parse(file('../../capacitor.config.json'))
+
+def appVersionCode = Integer.parseInt(System.getenv('APP_VERSION_CODE') ?: '1')
+def appVersionName = System.getenv('APP_VERSION_NAME') ?: '0.1.0'
+
+android {
+    // Fixo de propósito: o código Kotlin/Java não muda de pacote quando você renomeia o app.
+    namespace = "app.proot.shell"
+    compileSdk = rootProject.ext.compileSdkVersion
+    defaultConfig {
+        applicationId capacitorConfig.appId
+        minSdkVersion rootProject.ext.minSdkVersion
+        targetSdkVersion rootProject.ext.targetSdkVersion
+        versionCode appVersionCode
+        versionName appVersionName
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        // O PRoot/rootfs do template são ARM64 (praticamente todo celular desde 2017).
+        ndk { abiFilters "arm64-v8a" }
+        resValue "string", "app_name", capacitorConfig.appName
+        resValue "string", "title_activity_main", capacitorConfig.appName
+        resValue "string", "package_name", capacitorConfig.appId
+        resValue "string", "custom_url_scheme", capacitorConfig.appId
+        aaptOptions {
+             // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
+             // Default: https://android.googlesource.com/platform/frameworks/base/+/282e181b58cf72b6ca770dc7ca5f91f135444502/tools/aapt/AaptAssets.cpp#61
+            ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
+        }
+    }
+
+    // Uma chave fixa é o que permite um APK novo instalar por cima do anterior (mantendo os dados).
+    // O CI passa APP_KEYSTORE_* (ver .github/workflows/android.yml); sem isso cai na chave de debug
+    // da máquina, que muda entre execuções do CI.
+    def keystore = System.getenv("APP_KEYSTORE_FILE") ? file(System.getenv("APP_KEYSTORE_FILE")) : null
+    signingConfigs {
+        if (keystore != null && keystore.isFile()) {
+            release {
+                storeFile keystore
+                storePassword System.getenv("APP_KEYSTORE_PASSWORD")
+                keyAlias System.getenv("APP_KEY_ALIAS")
+                keyPassword System.getenv("APP_KEY_PASSWORD") ?: System.getenv("APP_KEYSTORE_PASSWORD")
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            signingConfig signingConfigs.findByName("release") ?: signingConfigs.debug
+        }
+    }
+
+    packaging {
+        // O PRoot e o loader são executados a partir da pasta de libs nativas, então precisam ser
+        // extraídos para o disco na instalação (Android 10+ proíbe exec() a partir de /data/data).
+        jniLibs { useLegacyPackaging = true }
+    }
+
+    androidResources {
+        // Mantém o asset do rootfs (rootfs.bin, tar.gz) como está: o tamanho é conhecido (barra de
+        // progresso) e a leitura é em streaming.
+        noCompress "bin"
+    }
+}
+
+repositories {
+    flatDir{
+        dirs '../capacitor-cordova-android-plugins/src/main/libs', 'libs'
+    }
+}
+
+dependencies {
+    implementation fileTree(include: ['*.jar'], dir: 'libs')
+    implementation "androidx.appcompat:appcompat:$androidxAppCompatVersion"
+    implementation "androidx.coordinatorlayout:coordinatorlayout:$androidxCoordinatorLayoutVersion"
+    implementation "androidx.core:core-splashscreen:$coreSplashScreenVersion"
+    implementation project(':capacitor-android')
+    testImplementation "junit:junit:$junitVersion"
+    implementation project(':capacitor-cordova-android-plugins')
+}
+
+apply from: 'capacitor.build.gradle'
