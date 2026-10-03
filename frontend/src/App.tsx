@@ -1,18 +1,46 @@
 import { useEffect, useMemo, useState } from "react";
 
+import type { RuntimeConnection } from "capacitor-proot-runtime";
+
 import { createApi, type Api, type Note, type SystemInfo } from "./api";
+import { Files } from "./Files";
 import { fetchLogs, restartRuntime, useRuntime } from "./runtime";
+import { Terminal } from "./Terminal";
+
+const TABS = { home: "Início", terminal: "Terminal", files: "Arquivos" } as const;
+type Tab = keyof typeof TABS;
 
 export function App() {
   const status = useRuntime();
   const api = useMemo(() => (status.connection ? createApi(status.connection) : null), [status.connection]);
+  const [tab, setTab] = useState<Tab>("home");
 
   return (
     <main>
       <h1>PRoot App</h1>
-      {status.state === "ready" && api ? <Ready api={api} /> : <Booting status={status} />}
+      {status.state === "ready" && api && status.connection ? (
+        <>
+          <nav className="tabs">
+            {(Object.keys(TABS) as Tab[]).map((t) => (
+              <button key={t} className={t === tab ? "active" : ""} onClick={() => setTab(t)}>
+                {TABS[t]}
+              </button>
+            ))}
+          </nav>
+          <TabBody tab={tab} api={api} conn={status.connection} />
+        </>
+      ) : (
+        <Booting status={status} />
+      )}
     </main>
   );
+}
+
+/** Terminal e Arquivos são a base de testes: apague as abas que seu app não precisar. */
+function TabBody({ tab, api, conn }: { tab: Tab; api: Api; conn: RuntimeConnection }) {
+  if (tab === "terminal") return <Terminal conn={conn} />;
+  if (tab === "files") return <Files conn={conn} />;
+  return <Ready api={api} />;
 }
 
 function Booting({ status }: { status: ReturnType<typeof useRuntime> }) {

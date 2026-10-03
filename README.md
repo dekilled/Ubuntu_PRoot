@@ -50,6 +50,24 @@ em [`docs/EXTRAIDO-DO-NEWHARNESS.md`](docs/EXTRAIDO-DO-NEWHARNESS.md).
 
 Na primeira abertura o app instala o Ubuntu (1–3 min, com barra de progresso na UI) e sobe o servidor.
 
+## Base de testes: Terminal e Arquivos
+
+O app de exemplo já vem com duas abas para testar o Ubuntu do celular antes de escrever o seu app:
+
+- **Terminal**: roda comandos de shell no Ubuntu (dentro do PRoot) e mostra a saída **ao vivo**.
+  Tem histórico (↑/↓), `cd` que persiste entre comandos, botão **Parar** (mata o comando e tudo o
+  que ele abriu), atalhos (`ls -la`, `df -h`, `pip list`…) e limite de tempo (`APP_TERMINAL_TIMEOUT`,
+  padrão 600 s). Não é interativo: o stdin é vazio, então `vim`, `top` ou `python` sem argumentos
+  não funcionam — use `top -bn1`, `python3 -c "…"`, `pip install …`, `apt-get … -y`.
+- **Arquivos**: upload de um ou vários arquivos (com barra de progresso) para `/root/files` — a pasta
+  onde o terminal começa, então dá para fazer `ls`, `cat`, `python3 script.py` logo depois. Também há
+  o botão **📎 Enviar arquivo** no próprio terminal. Upload nunca sobrescreve (`foto (1).jpg`);
+  limite em `APP_MAX_UPLOAD_MB` (padrão 1024).
+
+Backend: `backend/app/routes/terminal.py` e `files.py`; front: `frontend/src/Terminal.tsx` e
+`Files.tsx`. Para um app final que não precisa disso, apague as abas em `App.tsx` e, no servidor,
+defina `APP_ENABLE_TERMINAL=0` em `plugins.ProotRuntime.env` (ou remova as rotas).
+
 ## O que tem em cada pasta
 
 | Pasta | O que é | Você mexe? |
@@ -77,6 +95,8 @@ ou puro Python (o rootfs é montado em ARM64, mas compilar C dentro do build é 
 `WITH_NODE=1 npm run android:rootfs` (e no CI, defina `WITH_NODE` no passo do rootfs).
 
 **Variável de ambiente para o servidor.** `plugins.ProotRuntime.env` no `capacitor.config.json`.
+Já existentes: `APP_ENABLE_TERMINAL` (`1`/`0`), `APP_TERMINAL_TIMEOUT` (s), `APP_MAX_UPLOAD_MB`,
+`APP_FILES_DIR` (no app: `/root/files`), `CORS_ORIGINS` (extras).
 
 **Novo método nativo** (câmera, biometria, intents…): é só um `@PluginMethod` em
 `ProotRuntimePlugin.kt` (ou um plugin Capacitor próprio/oficial) — veja o README do plugin.
@@ -99,6 +119,8 @@ Alternativa: um keystore em `APP_KEYSTORE_BASE64` + `APP_KEYSTORE_PASSWORD` + `A
   plugin gera um **token novo a cada partida** (`APP_API_TOKEN`) e só o entrega ao front pela ponte do
   Capacitor; sem ele só o `/api/health` responde. CORS só para as origens do app.
 - `APP_SECRET_KEY` (estável por instalação) cifra o que você guardar no banco. Não troque.
+- O **terminal executa qualquer comando** (é o propósito): fica atrás do mesmo token e não recebe
+  `APP_API_TOKEN`/`APP_SECRET_KEY` no ambiente. Para apps publicados, avalie desligá-lo (`APP_ENABLE_TERMINAL=0`).
 - Sem `APP_API_TOKEN` o servidor **recusa subir** (fail-closed); `APP_DEV=1` só nos scripts de dev.
 - Tráfego HTTP puro é liberado apenas para `127.0.0.1`/`localhost` (`network_security_config.xml`).
 - Para contas de usuário, troque `app/auth.py:require_token` por login/JWT — o resto só depende dessa função.

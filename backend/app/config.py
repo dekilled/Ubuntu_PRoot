@@ -30,10 +30,19 @@ class Settings:
     data_dir: Path
     cors_origins: tuple[str, ...]
     frontend_dist: Path | None
+    # Base de testes: terminal (comandos no Ubuntu) e upload de arquivos. Ver app/routes/terminal.py.
+    files_dir: Path | None = None  # padrão: <data_dir>/files
+    enable_terminal: bool = True
+    terminal_timeout_s: int = 600
+    max_upload_mb: int = 1024
 
     @property
     def db_path(self) -> Path:
         return self.data_dir / "app.db"
+
+    @property
+    def uploads_dir(self) -> Path:
+        return self.files_dir or self.data_dir / "files"
 
 
 def load_settings(env: Mapping[str, str] = os.environ) -> Settings:
@@ -49,6 +58,7 @@ def load_settings(env: Mapping[str, str] = os.environ) -> Settings:
         )
     extra = tuple(o.strip() for o in env.get("CORS_ORIGINS", "").split(",") if o.strip() and o.strip() != "*")
     dist = env.get("FRONTEND_DIST")
+    files = env.get("APP_FILES_DIR")
     return Settings(
         port=int(env.get("APP_PORT", "8001")),
         boot_id=env.get("APP_BOOT_ID", ""),
@@ -57,4 +67,8 @@ def load_settings(env: Mapping[str, str] = os.environ) -> Settings:
         data_dir=Path(env.get("APP_DATA_DIR", "data")).resolve(),
         cors_origins=DEFAULT_CORS + extra,
         frontend_dist=Path(dist).resolve() if dist else None,
+        files_dir=Path(files).resolve() if files else None,
+        enable_terminal=env.get("APP_ENABLE_TERMINAL", "1") != "0",
+        terminal_timeout_s=int(env.get("APP_TERMINAL_TIMEOUT", "600")),
+        max_upload_mb=int(env.get("APP_MAX_UPLOAD_MB", "1024")),
     )

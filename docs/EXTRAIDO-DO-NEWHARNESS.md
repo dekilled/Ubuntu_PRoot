@@ -19,6 +19,8 @@ Mapa do que veio de onde, o que mudou e o que ficou de fora de propósito.
 | `android/scripts/{fetch-proot.sh,build-rootfs.sh,signing-key.py}` | `scripts/…` | Mesmos; variáveis `HARNESS_*` → `APP_*` |
 | `.github/workflows/android.yml` | idem | Job de checks (pytest + build) antes do APK; Java 21; Node 22 |
 | `backend/server.py`, `core.py`, `auth.py`, `docstore.py` | `backend/app/*` | Reescrito enxuto: health+boot id, token, SQLite puro com migrações, cifra Fernet. **Não** carrega chat/LLM/projetos |
+| Terminal (`frontend/.../bottom/Terminal.tsx`, `processes.py`, `workspace_runtime.py`) | `backend/app/routes/terminal.py` + `frontend/src/Terminal.tsx` | Versão enxuta para testes: um `bash -c` por comando com saída ao vivo (NDJSON), `cd` persistente, cancelar mata o grupo de processos; sem a sandbox de CPU/memória do Harness |
+| Anexos/upload (`media.py`) | `backend/app/routes/files.py` + `frontend/src/Files.tsx` | Upload multi-arquivo para `/root/files`, gravação em pedaços, sem sobrescrever |
 | `start.sh` | `scripts/dev-backend.sh` | Só o backend; o front roda com `npm run dev:web` |
 
 ## Ficou de fora (é do produto LUMNA, não da base)

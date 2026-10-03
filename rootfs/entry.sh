@@ -8,5 +8,6 @@ export HOME=/root
 export PATH=/opt/app/venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 export LANG=C.UTF-8
 export APP_DATA_DIR=/root/data
+export APP_FILES_DIR=/root/files  # upload + diretório inicial do terminal
 cd /opt/app/backend
 exec python -m uvicorn --factory app.server:create_app --host 127.0.0.1 --port "${APP_PORT:-8001}"

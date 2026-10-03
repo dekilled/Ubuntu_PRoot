@@ -26,3 +26,27 @@ button { padding: 10px 14px; border: 0; border-radius: 10px; background: var(--a
 button.ghost { background: transparent; color: var(--muted); }
 ul { list-style: none; padding: 0; margin: 12px 0 0; }
 li { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-top: 1px solid color-mix(in srgb, var(--muted) 25%, transparent); }
+
+/* Abas */
+.tabs { display: flex; gap: 6px; margin-bottom: 14px; }
+.tabs button { flex: 1; background: var(--card); color: var(--muted); }
+.tabs button.active { background: var(--accent); color: #fff; }
+button.danger { background: var(--danger); }
+button:disabled { opacity: 0.55; cursor: default; }
+.muted { color: var(--muted); }
+small.inline { display: inline; }
+
+/* Terminal */
+.terminal { display: flex; flex-direction: column; gap: 8px; padding: 12px; }
+.term-toolbar { display: flex; align-items: center; gap: 4px; }
+.term-toolbar .cwd { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 12px ui-monospace, monospace; color: var(--muted); }
+.term-toolbar button { padding: 6px 8px; font-size: 13px; }
+.screen {
+  margin: 0; background: #05070d; color: #d7f7d7; border-radius: 10px; padding: 10px;
+  height: 52vh; max-height: none; font: 12.5px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+.chips { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px; }
+.chip { flex: none; padding: 5px 10px; font: 12px ui-monospace, monospace; background: transparent; color: var(--fg); border: 1px solid color-mix(in srgb, var(--muted) 45%, transparent); border-radius: 999px; }
+.prompt { align-items: center; }
+.prompt span { font: 15px ui-monospace, monospace; color: var(--accent); }
+.prompt input { font-family: ui-monospace, monospace; }

@@ -18,7 +18,7 @@ from app.auth import require_token
 from app.config import Settings, load_settings
 from app.crypto import SecretBox
 from app.db import Database
-from app.routes import health, notes, system
+from app.routes import files, health, notes, system, terminal
 
 log = logging.getLogger("app")
 
@@ -49,6 +49,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     private = APIRouter(dependencies=[Depends(require_token)])
     private.include_router(system.router)
     private.include_router(notes.router)
+    private.include_router(terminal.router)
+    private.include_router(files.router)
     app.include_router(private)
 
     dist = settings.frontend_dist

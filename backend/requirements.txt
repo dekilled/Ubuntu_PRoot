@@ -4,3 +4,4 @@
 fastapi>=0.115,<1
 uvicorn>=0.30
 cryptography>=43
+python-multipart>=0.0.9  # upload de arquivos (UploadFile)
