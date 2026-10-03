@@ -27,6 +27,7 @@ const stop = watchRuntime(async (status) => {
 | `apiFetch(conn, path, init?)` | `fetch` para `conn.baseUrl + path` com o token. |
 | `ProotRuntime.start() / stop() / restart() / getStatus()` | Ciclo de vida. `start` é idempotente. |
 | `ProotRuntime.getLogs({lines})` | Fim do log do servidor. |
+| `ProotRuntime.importFiles({dir?})` | Seletor de arquivos do Android → cópia direta para `/root/<filesDir>/<dir>` no Ubuntu (sem rede). Resolve com `{files: [{name, size, path}]}`; cancelar = `files: []`. Progresso no evento `importProgress`. Só no app. |
 | `ProotRuntime.addListener("stateChange", cb)` | Evento cru. |
 | `configureWebFallback({baseUrl, token})` | Navegador: onde está o servidor de dev (padrão `http://127.0.0.1:8001`, `dev-token`). |
 
@@ -45,6 +46,7 @@ Tipos em [`src/definitions.ts`](src/definitions.ts).
 | `autoStart` | `true` | Sobe o runtime ao carregar o plugin |
 | `requestNotificationPermission` | `true` | Pede POST_NOTIFICATIONS (Android 13+) |
 | `env` | `{}` | Variáveis extras para o servidor |
+| `filesDir` | `files` | Pasta (relativa a `/root`) onde `importFiles` grava; casa com `APP_FILES_DIR` do `entry.sh` |
 
 ## Contrato com o servidor
 

@@ -50,6 +50,9 @@ export class ProotRuntimeWeb extends WebPlugin implements ProotRuntimePlugin {
   restart = () => this.publish();
   getStatus = () => this.probe();
   async stop() {}
+  async importFiles(): Promise<{ files: never[] }> {
+    throw this.unavailable("importFiles só existe no app Android; no navegador envie por HTTP (POST /api/files).");
+  }
   async getLogs() {
     return { backend: "(no navegador os logs ficam no terminal do dev:backend)" };
   }

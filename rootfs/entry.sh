@@ -4,6 +4,8 @@
 # chave secreta) vêm do plugin Android como variáveis de ambiente.
 set -e
 mkdir -p /root/data /root/files
+# Home nova (1ª partida): .bashrc/.profile do Ubuntu, para o terminal ter prompt, cores e aliases.
+for f in .bashrc .profile; do [ -e "/root/$f" ] || cp "/opt/app/skel/$f" "/root/$f" 2>/dev/null || true; done
 export HOME=/root
 export PATH=/opt/app/venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 export LANG=C.UTF-8

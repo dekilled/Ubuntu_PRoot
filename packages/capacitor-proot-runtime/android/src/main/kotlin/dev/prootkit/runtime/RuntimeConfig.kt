@@ -22,6 +22,8 @@ data class RuntimeConfig(
     val requestNotificationPermission: Boolean = true,
     /** Variáveis extras para o servidor. */
     val env: Map<String, String> = emptyMap(),
+    /** Pasta (relativa a /root no Ubuntu) onde `importFiles` grava; casa com APP_FILES_DIR do entry.sh. */
+    val filesDir: String = "files",
 ) {
     val baseUrl: String get() = "http://127.0.0.1:$port"
 
@@ -39,6 +41,7 @@ data class RuntimeConfig(
                 autoStart = o.optBoolean("autoStart", d.autoStart),
                 requestNotificationPermission = o.optBoolean("requestNotificationPermission", d.requestNotificationPermission),
                 env = extra?.keys()?.asSequence()?.associateWith { extra.optString(it) } ?: emptyMap(),
+                filesDir = o.optString("filesDir", d.filesDir),
             )
         }
 

@@ -54,19 +54,27 @@ Na primeira abertura o app instala o Ubuntu (1–3 min, com barra de progresso n
 
 O app de exemplo já vem com duas abas para testar o Ubuntu do celular antes de escrever o seu app:
 
-- **Terminal**: roda comandos de shell no Ubuntu (dentro do PRoot) e mostra a saída **ao vivo**.
-  Tem histórico (↑/↓), `cd` que persiste entre comandos, botão **Parar** (mata o comando e tudo o
-  que ele abriu), atalhos (`ls -la`, `df -h`, `pip list`…) e limite de tempo (`APP_TERMINAL_TIMEOUT`,
-  padrão 600 s). Não é interativo: o stdin é vazio, então `vim`, `top` ou `python` sem argumentos
-  não funcionam — use `top -bn1`, `python3 -c "…"`, `pip install …`, `apt-get … -y`.
-- **Arquivos**: upload de um ou vários arquivos (com barra de progresso) para `/root/files` — a pasta
-  onde o terminal começa, então dá para fazer `ls`, `cat`, `python3 script.py` logo depois. Também há
-  o botão **📎 Enviar arquivo** no próprio terminal. Upload nunca sobrescreve (`foto (1).jpg`);
-  limite em `APP_MAX_UPLOAD_MB` (padrão 1024).
+- **Terminal** — um terminal de verdade: `bash` num PTY (como no Termux), ligado à tela por
+  WebSocket e desenhado com [xterm.js](https://xtermjs.org). Programas interativos funcionam:
+  `apt install` perguntando "Y/n", `nano`, `python3` (REPL), `top`, `less`, Tab para completar.
+  - Barra de **teclas extras** que o teclado do celular não tem: ESC, TAB, CTRL e ALT (tocar uma vez
+    = vale para a próxima tecla, ex.: CTRL e depois `c` = Ctrl+C), setas, HOME/END, PGUP/PGDN, `- / | ~`.
+  - **A− / A+** (fonte), **Colar**, **📎** (envia arquivo para `~/files`) e **Nova sessão**.
+  - A sessão **sobrevive** se a conexão cair (app em segundo plano, trocar de aba, recarregar): ao
+    voltar, é o mesmo shell, com a tela restaurada. Sessões sem ninguém conectado morrem em 30 min;
+    `exit` encerra na hora.
+  - O Ubuntu já vem com `nano`, `less`, `ps`/`top`, `file`, `unzip`, `git`, `curl`. Para instalar mais:
+    `apt update` (as listas não vão no APK, para ele ficar menor) e depois `apt install <pacote>`.
+- **Arquivos** — gerenciador da pasta de trabalho `/root/files` (onde o terminal começa): navegar
+  em pastas, **criar pasta**, **enviar arquivos para a pasta atual** e apagar (pastas inteiras também).
+  - No celular, o envio usa o **seletor nativo do Android** e o plugin copia o arquivo direto para
+    dentro do Ubuntu (`ProotRuntime.importFiles`) — sem passar pela rede, com progresso, sem limite
+    prático de tamanho. No navegador (desenvolvimento), o envio é por HTTP.
+  - Nunca sobrescreve (`foto (1).jpg`); nada sai de `/root/files` (nem por `..` nem por symlink).
 
-Backend: `backend/app/routes/terminal.py` e `files.py`; front: `frontend/src/Terminal.tsx` e
-`Files.tsx`. Para um app final que não precisa disso, apague as abas em `App.tsx` e, no servidor,
-defina `APP_ENABLE_TERMINAL=0` em `plugins.ProotRuntime.env` (ou remova as rotas).
+Código: `backend/app/pty_sessions.py`, `backend/app/routes/terminal.py` e `files.py`;
+`frontend/src/Terminal.tsx` e `Files.tsx`. Para um app final que não precisa disso, apague as abas em
+`App.tsx` e, no servidor, defina `APP_ENABLE_TERMINAL=0` em `plugins.ProotRuntime.env`.
 
 ## O que tem em cada pasta
 
@@ -119,8 +127,11 @@ Alternativa: um keystore em `APP_KEYSTORE_BASE64` + `APP_KEYSTORE_PASSWORD` + `A
   plugin gera um **token novo a cada partida** (`APP_API_TOKEN`) e só o entrega ao front pela ponte do
   Capacitor; sem ele só o `/api/health` responde. CORS só para as origens do app.
 - `APP_SECRET_KEY` (estável por instalação) cifra o que você guardar no banco. Não troque.
-- O **terminal executa qualquer comando** (é o propósito): fica atrás do mesmo token e não recebe
-  `APP_API_TOKEN`/`APP_SECRET_KEY` no ambiente. Para apps publicados, avalie desligá-lo (`APP_ENABLE_TERMINAL=0`).
+- O **terminal executa qualquer comando** (é o propósito): o WebSocket exige o mesmo token (na 1ª
+  mensagem, nunca na URL) e confere a origem; os comandos não recebem `APP_API_TOKEN`/`APP_SECRET_KEY`
+  no ambiente. Para apps publicados, avalie desligá-lo (`APP_ENABLE_TERMINAL=0`).
+- Erros inesperados do servidor voltam como JSON **com** cabeçalho CORS — no WebView aparecem com a
+  mensagem real, em vez de um genérico "erro de rede".
 - Sem `APP_API_TOKEN` o servidor **recusa subir** (fail-closed); `APP_DEV=1` só nos scripts de dev.
 - Tráfego HTTP puro é liberado apenas para `127.0.0.1`/`localhost` (`network_security_config.xml`).
 - Para contas de usuário, troque `app/auth.py:require_token` por login/JWT — o resto só depende dessa função.

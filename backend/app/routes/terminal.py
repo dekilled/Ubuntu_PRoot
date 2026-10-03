@@ -1,4 +1,15 @@
-"""Terminal da base de testes: roda um comando de shell no Ubuntu (dentro do PRoot, no app) e
+"""Terminal da base de testes.
+
+1) Terminal interativo (o que a UI usa): WebSocket /api/terminal/ws ligado a um bash num PTY —
+   ver app/pty_sessions.py. Protocolo:
+     cliente → {"type": "auth", "token": "...", "session": "<id para reconectar>"?, "cols": 80, "rows": 24}
+     servidor → {"type": "ready", "session": "<id>", "resumed": bool}, depois a saída do shell em
+                frames BINÁRIOS (bytes crus do terminal), e {"type": "exit", "code": n} no fim
+     cliente → {"type": "input", "data": "ls\r"} | {"type": "resize", "cols", "rows"} | {"type": "close"}
+
+2) Comando avulso, sem PTY (útil para automação e testes), descrito abaixo.
+
+Roda um comando de shell no Ubuntu (dentro do PRoot, no app) e
 transmite a saída enquanto ela acontece.
 
 Protocolo: POST /api/terminal/run {"command": "...", "cwd": "/root/files"} → resposta NDJSON
@@ -20,17 +31,25 @@ import asyncio
 import codecs
 import json
 import os
+import secrets
 import shutil
 import signal
 import tempfile
 import time
 from pathlib import Path
 
-from fastapi import APIRouter, HTTPException, Request
+from urllib.parse import urlparse
+
+from fastapi import APIRouter, HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
+from app import pty_sessions
+
 router = APIRouter(prefix="/api/terminal")
+# WebSocket não manda header Authorization pelo navegador: autentica na 1ª mensagem (fica fora do
+# router "private" do server.py, que exige o header).
+ws_router = APIRouter()
 
 # Roda o comando no diretório pedido e grava o diretório final num arquivo à parte, para não
 # misturar com a saída. Comando e caminhos vão por variáveis de ambiente: nada de aspas a escapar.
@@ -125,3 +144,90 @@ async def run(body: RunIn, request: Request):
             Path(cwd_file).unlink(missing_ok=True)
 
     return StreamingResponse(stream(), media_type="application/x-ndjson", headers={"Cache-Control": "no-store"})
+
+
+def _origin_ok(ws: WebSocket) -> bool:
+    """CORS não vale para WebSocket: a origem é conferida aqui (além do token)."""
+    origin = ws.headers.get("origin")
+    if not origin:
+        return True  # cliente que não é navegador
+    s = ws.app.state.settings
+    return origin in s.cors_origins or urlparse(origin).netloc == ws.headers.get("host", "")
+
+
+@ws_router.websocket("/api/terminal/ws")
+async def terminal_ws(ws: WebSocket):
+    s = ws.app.state.settings
+    if not _origin_ok(ws):
+        await ws.close(code=1008)
+        return
+    await ws.accept()
+
+    async def fail(message: str) -> None:
+        try:
+            await ws.send_json({"type": "error", "message": message})
+            await ws.close(code=1008)
+        except (WebSocketDisconnect, RuntimeError):
+            pass  # o cliente já foi embora (ex.: recarregou a página antes de autenticar)
+
+    if not s.enable_terminal:
+        return await fail("Terminal desligado no servidor (APP_ENABLE_TERMINAL=0).")
+    try:
+        hello = await asyncio.wait_for(ws.receive_json(), timeout=10)
+    except (asyncio.TimeoutError, WebSocketDisconnect, ValueError):
+        return await fail("Esperava a mensagem de autenticação.")
+    token = str(hello.get("token", ""))
+    if hello.get("type") != "auth" or not secrets.compare_digest(token.encode(), s.api_token.encode()):
+        return await fail("Não autenticado.")
+
+    cols, rows = int(hello.get("cols") or 80), int(hello.get("rows") or 24)
+    session = pty_sessions.get(hello.get("session"))
+    resumed = session is not None
+    if session is None:
+        s.uploads_dir.mkdir(parents=True, exist_ok=True)
+        try:
+            session = pty_sessions.create(str(s.uploads_dir), cols, rows)
+        except OSError as e:
+            return await fail(f"Não consegui abrir um terminal (PTY): {e}")
+    else:
+        session.resize(cols, rows)
+
+    queue: asyncio.Queue[bytes | None] = asyncio.Queue()
+    await ws.send_json({"type": "ready", "session": session.id, "resumed": resumed})
+    if resumed and session.scrollback():
+        await ws.send_bytes(session.scrollback())  # a tela de antes da reconexão
+    session.attach(queue.put_nowait)
+
+    async def pump() -> None:
+        while True:
+            data = await queue.get()
+            buf, ended = bytearray(data or b""), data is None
+            while not ended and not queue.empty():  # junta rajadas num frame só
+                nxt = queue.get_nowait()
+                if nxt is None:
+                    ended = True
+                else:
+                    buf += nxt
+            if buf:
+                await ws.send_bytes(bytes(buf))
+            if ended:
+                await ws.send_json({"type": "exit", "code": session.exit_code})
+                await ws.close()
+                return
+
+    sender = asyncio.create_task(pump())
+    try:
+        while True:
+            msg = await ws.receive_json()
+            kind = msg.get("type")
+            if kind == "input":
+                session.write(str(msg.get("data", "")).encode())
+            elif kind == "resize":
+                session.resize(int(msg.get("cols") or cols), int(msg.get("rows") or rows))
+            elif kind == "close":
+                session.kill()
+    except (WebSocketDisconnect, RuntimeError, ValueError):
+        pass  # conexão caiu: a sessão continua viva para reconectar
+    finally:
+        session.detach(queue.put_nowait)
+        sender.cancel()

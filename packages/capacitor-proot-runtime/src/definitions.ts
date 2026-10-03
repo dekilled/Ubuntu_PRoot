@@ -29,6 +29,24 @@ export interface RuntimeStatus {
   connection?: RuntimeConnection;
 }
 
+/** Arquivo copiado para dentro do Ubuntu por `importFiles`. */
+export interface ImportedFile {
+  name: string;
+  size: number;
+  /** Caminho visto de dentro do Ubuntu, ex.: `/root/files/foto.jpg`. */
+  path: string;
+}
+
+export interface ImportProgress {
+  name: string;
+  /** Posição do arquivo atual (0…count-1). */
+  index: number;
+  count: number;
+  loaded: number;
+  /** -1 quando o Android não informa o tamanho. */
+  total: number;
+}
+
 export interface ProotRuntimePlugin {
   /** Sobe o runtime (idempotente). Com `autoStart` (padrão) o plugin já faz isso ao carregar. */
   start(): Promise<RuntimeStatus>;
@@ -40,10 +58,20 @@ export interface ProotRuntimePlugin {
   getStatus(): Promise<RuntimeStatus>;
   /** Final do log do servidor Python (stdout/stderr do PRoot). */
   getLogs(options?: { lines?: number }): Promise<{ backend: string }>;
+  /**
+   * Abre o seletor de arquivos do Android e copia os escolhidos direto para a pasta de trabalho do
+   * Ubuntu (`/root/<filesDir>/<dir>`; `filesDir` padrão "files"), sem passar pela rede.
+   * Cancelar resolve com `files: []`. Só no app (no navegador: indisponível — use HTTP).
+   */
+  importFiles(options?: { dir?: string }): Promise<{ files: ImportedFile[] }>;
   /** Mudanças de estado (instalação, pronto, falha…). */
   addListener(
     eventName: "stateChange",
     listener: (status: RuntimeStatus) => void,
+  ): Promise<{ remove: () => Promise<void> }>;
+  addListener(
+    eventName: "importProgress",
+    listener: (progress: ImportProgress) => void,
   ): Promise<{ remove: () => Promise<void> }>;
   removeAllListeners(): Promise<void>;
 }

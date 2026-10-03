@@ -24,4 +24,6 @@ export APP_DATA_DIR="${APP_DATA_DIR:-$BACKEND/data}"
 
 cd "$BACKEND"
 echo "[dev] servidor em http://127.0.0.1:$APP_PORT  (token: ${APP_API_TOKEN:-dev-token})"
-exec .venv/bin/python -m uvicorn --factory app.server:create_app --host 127.0.0.1 --port "$APP_PORT" --reload
+# --reload-dir: recarrega só quando o código do servidor muda (não quando você cria .py pelo terminal
+# em data/files — isso reiniciaria o servidor e mataria as sessões do terminal).
+exec .venv/bin/python -m uvicorn --factory app.server:create_app --host 127.0.0.1 --port "$APP_PORT" --reload --reload-dir "$BACKEND/app"
